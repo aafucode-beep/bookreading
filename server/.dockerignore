@@ -1,0 +1,8 @@
+.venv
+data
+backups
+downloads
+tests
+__pycache__
+.pytest_cache
+

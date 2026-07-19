@@ -1,0 +1,60 @@
+services:
+  api:
+    build:
+      context: ./server
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./server/data:/app/data
+      - ./server/downloads:/app/downloads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    build:
+      context: ./server
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    env_file: .env
+    volumes:
+      - ./server/data:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+
+  backup:
+    build:
+      context: ./server
+    restart: unless-stopped
+    command: ["python", "-m", "app.backup"]
+    env_file: .env
+    volumes:
+      - ./server/data:/app/data
+      - ./server/backups:/app/backups
+    depends_on:
+      api:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
